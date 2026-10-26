@@ -1,6 +1,7 @@
 #!/bin/bash
 # Downloads the pinned CEF binary distribution into vendor/cef and builds the
-# C++ wrapper library. Safe to re-run; skips what is already there.
+# C++ wrapper library. Safe to re-run; skips what is already there and replaces
+# vendor/cef when the pinned version changes.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -18,6 +19,11 @@ NAME="cef_binary_${CEF_VERSION}_${ARCH}_minimal"
 URL="https://cef-builds.spotifycdn.com/${NAME}.tar.bz2"
 
 mkdir -p vendor
+# A different pinned version replaces vendor/cef, wrapper build included.
+if [ -d vendor/cef ] && ! grep -qF "#define CEF_VERSION \"${CEF_VERSION}\"" vendor/cef/include/cef_version.h 2>/dev/null; then
+  echo "vendor/cef is not CEF ${CEF_VERSION}; replacing it."
+  rm -rf vendor/cef
+fi
 if [ ! -d vendor/cef/Release ]; then
   echo "Downloading ${NAME} (about 130 MB)..."
   mkdir -p vendor/cef-download

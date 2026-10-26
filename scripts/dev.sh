@@ -56,9 +56,12 @@ build() {
   swift build -c debug --scratch-path "$SCRATCH" || return 1
   local bin
   bin="$(swift build -c debug --scratch-path "$SCRATCH" --show-bin-path)"
-  # Bundles made before CEF's Keychain item was renamed get the patched framework too.
+  # Re-bootstrap bundles made before CEF's Keychain item was renamed, or with another CEF version.
+  local fw="$APP/Contents/Frameworks/Chromium Embedded Framework.framework"
   [ -d "$APP/Contents/Frameworks/$NAME Helper.app" ] \
-    && scripts/patch-cef-keychain.sh --check "$APP/Contents/Frameworks/Chromium Embedded Framework.framework" || bootstrap
+    && scripts/patch-cef-keychain.sh --check "$fw" \
+    && cmp -s "$ROOT/vendor/cef/Release/Chromium Embedded Framework.framework/Resources/Info.plist" "$fw/Resources/Info.plist" \
+    || bootstrap
   [ -d "$APP/Contents/Frameworks/Sparkle.framework" ] || cp -R "$bin/Sparkle.framework" "$APP/Contents/Frameworks/"
   for entry in "${HELPERS[@]}"; do
     local ns="${entry%%|*}"
