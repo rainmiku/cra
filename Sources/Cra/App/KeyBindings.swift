@@ -178,6 +178,7 @@ final class KeyBindingRegistry {
             KeyAction(id: "hardReload", name: "Force Refresh the Page", section: .view, shortcuts: [Shortcut("r", cmdShift)]),
             // Arc: View ▸ Developer ▸ "Turn on/off Developer Mode for this site" (⌃D).
             KeyAction(id: "toggleDeveloperMode", name: "Toggle Developer Mode for this Site", section: .view, shortcuts: [Shortcut("d", .control)], triggers: ["developer mode", "dev mode"]),
+            KeyAction(id: "sitePermissions", name: "Site Permissions…", section: .view, shortcuts: [], triggers: ["permissions", "site settings", "camera", "microphone", "location"]),
             KeyAction(id: "resetZoom", name: "Zoom to Actual Size", section: .view, shortcuts: [Shortcut("0", cmd)], triggers: ["reset zoom"]),
             KeyAction(id: "zoomIn", name: "Zoom In", section: .view, shortcuts: [Shortcut("=", cmd), Shortcut("=", cmdShift)]),
             KeyAction(id: "zoomOut", name: "Zoom Out", section: .view, shortcuts: [Shortcut("-", cmd)]),

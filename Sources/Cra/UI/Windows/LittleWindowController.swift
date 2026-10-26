@@ -650,15 +650,9 @@ final class LittleWindowController: NSWindowController, NSWindowDelegate, @preco
     func browser(_ browser: CraBrowser, handleUnhandledKeyEvent event: NSEvent) -> Bool { app.handleUnhandledKey(event) }
     func browser(_ browser: CraBrowser, didUpdateDownload download: CraDownloadInfo) { app.main.browserManager(download: download) }
 
-    func browser(_ browser: CraBrowser, requestsPermissionForOrigin origin: String, kinds: UInt, completion: @escaping (Bool) -> Void) {
-        if kinds == 8 { completion(false); return }
-        var what: [String] = []
-        if kinds & 1 != 0 { what.append("camera") }
-        if kinds & 2 != 0 { what.append("microphone") }
-        if kinds & 4 != 0 { what.append("location") }
-        if what.isEmpty { what.append("a browser permission") }
+    func browser(_ browser: CraBrowser, requestsPermissionForOrigin origin: String, permissions: [String], completion: @escaping (Bool) -> Void) {
         let alert = NSAlert()
-        alert.messageText = "\(origin) wants to use your \(what.joined(separator: " and "))"
+        alert.messageText = "\(origin) wants to \(permissions.joined(separator: " and "))"
         alert.addButton(withTitle: "Allow")
         alert.addButton(withTitle: "Block")
         guard let window else { completion(false); return }

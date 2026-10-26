@@ -266,6 +266,7 @@ enum ShortcutDescriptions {
         "reload": "Reload the page.",
         "hardReload": "Reload the page, ignoring cached content.",
         "toggleDeveloperMode": "Show the full URL and developer tools for this site.",
+        "sitePermissions": "See and forget the permissions you allowed or blocked for this site.",
         "resetZoom": "Return the page to its actual size.",
         "zoomIn": "Make the page larger.",
         "zoomOut": "Make the page smaller.",

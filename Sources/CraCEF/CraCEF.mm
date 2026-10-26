@@ -929,12 +929,23 @@ public:
                                         CefRefPtr<CefMediaAccessCallback> callback) override {
         CraBrowser* o = owner_;
         if (!o || !o.delegate) return false;
-        NSUInteger kinds = 0;
-        if (requested_permissions & (CEF_MEDIA_PERMISSION_DEVICE_VIDEO_CAPTURE | CEF_MEDIA_PERMISSION_DESKTOP_VIDEO_CAPTURE)) kinds |= 1;
-        if (requested_permissions & (CEF_MEDIA_PERMISSION_DEVICE_AUDIO_CAPTURE | CEF_MEDIA_PERMISSION_DESKTOP_AUDIO_CAPTURE)) kinds |= 2;
+        const uint32_t desktop = CEF_MEDIA_PERMISSION_DESKTOP_VIDEO_CAPTURE | CEF_MEDIA_PERMISSION_DESKTOP_AUDIO_CAPTURE;
+        // Screen capture (getDisplayMedia). Granting it here captures the whole screen with
+        // no picker (CEF picks kFullDesktopScreenId), so Chrome-style pages get Chrome's own
+        // screen/window/tab picker instead, and Alloy pages a prompt that says exactly that.
+        if ((requested_permissions & desktop) && browser->GetHost()->GetRuntimeStyle() == CEF_RUNTIME_STYLE_CHROME) return false;
+        NSMutableArray<NSString*>* what = [NSMutableArray array];
+        bool camera = requested_permissions & CEF_MEDIA_PERMISSION_DEVICE_VIDEO_CAPTURE;
+        bool mic = requested_permissions & CEF_MEDIA_PERMISSION_DEVICE_AUDIO_CAPTURE;
+        if (camera && mic) [what addObject:@"use your camera and microphone"];
+        else if (camera) [what addObject:@"use your camera"];
+        else if (mic) [what addObject:@"use your microphone"];
+        if (requested_permissions & CEF_MEDIA_PERMISSION_DESKTOP_VIDEO_CAPTURE) [what addObject:@"record your entire screen"];
+        if (requested_permissions & CEF_MEDIA_PERMISSION_DESKTOP_AUDIO_CAPTURE) [what addObject:@"record your Mac's audio"];
+        if (what.count == 0) return false;
         CefRefPtr<CefMediaAccessCallback> cb = callback;
         uint32_t requested = requested_permissions;
-        [o.delegate browser:o requestsPermissionForOrigin:NSStringFromCef(requesting_origin) kinds:kinds
+        [o.delegate browser:o requestsPermissionForOrigin:NSStringFromCef(requesting_origin) permissions:what
                  completion:^(BOOL allowed) {
             cb->Continue(allowed ? requested : CEF_MEDIA_PERMISSION_NONE);
         }];
@@ -946,14 +957,42 @@ public:
                                 CefRefPtr<CefPermissionPromptCallback> callback) override {
         CraBrowser* o = owner_;
         if (!o || !o.delegate) return false;
-        NSUInteger kinds = 0;
-        if (requested_permissions & (CEF_PERMISSION_TYPE_CAMERA_STREAM | CEF_PERMISSION_TYPE_CAMERA_PAN_TILT_ZOOM)) kinds |= 1;
-        if (requested_permissions & CEF_PERMISSION_TYPE_MIC_STREAM) kinds |= 2;
-        if (requested_permissions & CEF_PERMISSION_TYPE_GEOLOCATION) kinds |= 4;
-        if (requested_permissions & CEF_PERMISSION_TYPE_NOTIFICATIONS) kinds |= 8;
-        if (kinds == 0) kinds = 16;
+        // The permission types Cra asks about, each named. Everything else (notifications,
+        // AR/VR, sensors, idle detection, protocol handlers, app install, FedCM, storage
+        // access, ...) and any type a newer CEF adds is denied without a prompt.
+        static const struct { uint32_t type; NSString* what; } kAsk[] = {
+            {CEF_PERMISSION_TYPE_CAMERA_STREAM, @"use your camera"},
+            {CEF_PERMISSION_TYPE_CAMERA_PAN_TILT_ZOOM, @"move your camera (pan, tilt and zoom)"},
+            {CEF_PERMISSION_TYPE_MIC_STREAM, @"use your microphone"},
+            {CEF_PERMISSION_TYPE_GEOLOCATION, @"know your location"},
+            {CEF_PERMISSION_TYPE_CLIPBOARD, @"see text and images you copy to the clipboard"},
+            {CEF_PERMISSION_TYPE_MIDI_SYSEX, @"control and reprogram your MIDI devices"},
+            {CEF_PERMISSION_TYPE_WINDOW_MANAGEMENT, @"manage windows on all your displays"},
+            {CEF_PERMISSION_TYPE_LOCAL_FONTS, @"use the fonts installed on your Mac"},
+            {CEF_PERMISSION_TYPE_MULTIPLE_DOWNLOADS, @"download multiple files"},
+            {CEF_PERMISSION_TYPE_POINTER_LOCK, @"lock and hide your mouse pointer"},
+            {CEF_PERMISSION_TYPE_KEYBOARD_LOCK, @"capture your keyboard, including system shortcuts"},
+            {CEF_PERMISSION_TYPE_LOCAL_NETWORK, @"connect to devices on your local network"},
+            {CEF_PERMISSION_TYPE_LOOPBACK_NETWORK, @"connect to apps running on your Mac"},
+        };
+        const uint32_t cameraAndMic = CEF_PERMISSION_TYPE_CAMERA_STREAM | CEF_PERMISSION_TYPE_MIC_STREAM;
+        NSMutableArray<NSString*>* what = [NSMutableArray array];
+        uint32_t types = requested_permissions, known = 0;
+        if ((types & cameraAndMic) == cameraAndMic) {
+            [what addObject:@"use your camera and microphone"];
+            types &= ~cameraAndMic;
+        }
+        for (const auto& k : kAsk) {
+            if (types & k.type) [what addObject:k.what];
+            known |= k.type;
+        }
         CefRefPtr<CefPermissionPromptCallback> cb = callback;
-        [o.delegate browser:o requestsPermissionForOrigin:NSStringFromCef(requesting_origin) kinds:kinds
+        if ((requested_permissions & ~known) || what.count == 0) {
+            NSLog(@"Cra: denied permission request 0x%x from %@", requested_permissions, NSStringFromCef(requesting_origin));
+            cb->Continue(CEF_PERMISSION_RESULT_DENY);
+            return true;
+        }
+        [o.delegate browser:o requestsPermissionForOrigin:NSStringFromCef(requesting_origin) permissions:what
                  completion:^(BOOL allowed) {
             cb->Continue(allowed ? CEF_PERMISSION_RESULT_ACCEPT : CEF_PERMISSION_RESULT_DENY);
         }];
@@ -1232,6 +1271,56 @@ class CraDevToolsObserver : public CefDevToolsMessageObserver {
 
 - (double)zoomLevel { return _browser ? _browser->GetHost()->GetZoomLevel() : 0; }
 - (void)setZoomLevel:(double)level { if (_browser) _browser->GetHost()->SetZoomLevel(level); }
+
+// Content settings an Allow/Block answer is stored in, including the types that older
+// Cra builds granted through a generic prompt.
+static const struct { cef_content_setting_types_t type; NSString* name; } kRememberedPermissions[] = {
+    {CEF_CONTENT_SETTING_TYPE_MEDIASTREAM_CAMERA, @"Camera"},
+    {CEF_CONTENT_SETTING_TYPE_CAMERA_PAN_TILT_ZOOM, @"Camera pan, tilt and zoom"},
+    {CEF_CONTENT_SETTING_TYPE_MEDIASTREAM_MIC, @"Microphone"},
+    {CEF_CONTENT_SETTING_TYPE_GEOLOCATION, @"Location"},
+    {CEF_CONTENT_SETTING_TYPE_CLIPBOARD_READ_WRITE, @"Clipboard"},
+    {CEF_CONTENT_SETTING_TYPE_MIDI_SYSEX, @"MIDI devices"},
+    {CEF_CONTENT_SETTING_TYPE_WINDOW_MANAGEMENT, @"Window management"},
+    {CEF_CONTENT_SETTING_TYPE_LOCAL_FONTS, @"Fonts"},
+    {CEF_CONTENT_SETTING_TYPE_AUTOMATIC_DOWNLOADS, @"Multiple downloads"},
+    {CEF_CONTENT_SETTING_TYPE_POINTER_LOCK, @"Mouse pointer lock"},
+    {CEF_CONTENT_SETTING_TYPE_KEYBOARD_LOCK, @"Keyboard lock"},
+    {CEF_CONTENT_SETTING_TYPE_LOCAL_NETWORK, @"Local network"},
+    {CEF_CONTENT_SETTING_TYPE_LOOPBACK_NETWORK, @"Apps on this Mac"},
+    {CEF_CONTENT_SETTING_TYPE_LOCAL_NETWORK_ACCESS, @"Local network access"},
+    {CEF_CONTENT_SETTING_TYPE_NOTIFICATIONS, @"Notifications"},
+    {CEF_CONTENT_SETTING_TYPE_IDLE_DETECTION, @"Idle detection"},
+    {CEF_CONTENT_SETTING_TYPE_SENSORS, @"Motion sensors"},
+    {CEF_CONTENT_SETTING_TYPE_STORAGE_ACCESS, @"Storage access"},
+    {CEF_CONTENT_SETTING_TYPE_TOP_LEVEL_STORAGE_ACCESS, @"Top-level storage access"},
+    {CEF_CONTENT_SETTING_TYPE_CAPTURED_SURFACE_CONTROL, @"Captured tab control"},
+    {CEF_CONTENT_SETTING_TYPE_AR, @"Augmented reality"},
+    {CEF_CONTENT_SETTING_TYPE_VR, @"Virtual reality"},
+    {CEF_CONTENT_SETTING_TYPE_HAND_TRACKING, @"Hand tracking"},
+    {CEF_CONTENT_SETTING_TYPE_WEB_APP_INSTALLATION, @"App installation"},
+};
+
+- (NSArray<NSString*>*)rememberedPermissions {
+    NSMutableArray<NSString*>* r = [NSMutableArray array];
+    if (!_browser) return r;
+    CefString url = _browser->GetMainFrame()->GetURL();
+    CefRefPtr<CefRequestContext> ctx = _browser->GetHost()->GetRequestContext();
+    for (const auto& k : kRememberedPermissions) {
+        cef_content_setting_values_t v = ctx->GetContentSetting(url, url, k.type);
+        if (v == ctx->GetContentSetting(CefString(), CefString(), k.type)) continue;  // the default, not an answer
+        if (v == CEF_CONTENT_SETTING_VALUE_ALLOW) [r addObject:[k.name stringByAppendingString:@": allowed"]];
+        else if (v == CEF_CONTENT_SETTING_VALUE_BLOCK) [r addObject:[k.name stringByAppendingString:@": blocked"]];
+    }
+    return r;
+}
+
+- (void)forgetRememberedPermissions {
+    if (!_browser) return;
+    CefString url = _browser->GetMainFrame()->GetURL();
+    CefRefPtr<CefRequestContext> ctx = _browser->GetHost()->GetRequestContext();
+    for (const auto& k : kRememberedPermissions) ctx->SetContentSetting(url, url, k.type, CEF_CONTENT_SETTING_VALUE_DEFAULT);
+}
 
 - (void)findText:(NSString*)text forward:(BOOL)forward matchCase:(BOOL)matchCase findNext:(BOOL)findNext {
     if (_browser) _browser->GetHost()->Find(CefStringFromNS(text), forward, matchCase, findNext);

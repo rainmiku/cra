@@ -61,9 +61,10 @@ typedef NS_ENUM(NSInteger, CraDownloadState) {
 /// unreserved shortcuts like ⌘F). Return YES to consume.
 - (BOOL)browser:(CraBrowser *)browser handleUnhandledKeyEvent:(NSEvent *)event;
 - (void)browser:(CraBrowser *)browser didUpdateDownload:(CraDownloadInfo *)download;
-/// Ask the user. `kinds` is a bitmask: 1 = camera, 2 = microphone,
-/// 4 = location, 8 = notifications, 16 = other.
-- (void)browser:(CraBrowser *)browser requestsPermissionForOrigin:(NSString *)origin kinds:(NSUInteger)kinds completion:(void (^)(BOOL allowed))completion;
+/// Ask the user. Each entry of `permissions` completes "<origin> wants to …",
+/// e.g. "use your camera" or "record your entire screen". Requests Cra does not
+/// support are denied before they get here.
+- (void)browser:(CraBrowser *)browser requestsPermissionForOrigin:(NSString *)origin permissions:(NSArray<NSString *> *)permissions completion:(void (^)(BOOL allowed))completion;
 - (void)browserDidReceiveFocus:(CraBrowser *)browser;
 - (void)browserDidClose:(CraBrowser *)browser;
 @optional
@@ -117,6 +118,11 @@ typedef NS_ENUM(NSInteger, CraDownloadState) {
 - (void)findText:(NSString *)text forward:(BOOL)forward matchCase:(BOOL)matchCase findNext:(BOOL)findNext;
 - (void)stopFinding:(BOOL)clearSelection;
 - (void)setAudioMuted:(BOOL)muted;
+/// Chromium remembers Allow and Block answers to permission prompts per origin.
+/// The ones remembered for the page's origin, e.g. "Clipboard: allowed".
+- (NSArray<NSString *> *)rememberedPermissions;
+/// Forgets them, so the page's origin is asked again.
+- (void)forgetRememberedPermissions;
 /// Pops the page's video out into Chromium's floating Picture in Picture
 /// window. Manual requests toggle (a second call brings the video back).
 /// `automatic` is the "leaving a video tab" case: only a playing video of some

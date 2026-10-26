@@ -518,6 +518,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case "toggleSidebar": main.toggleSidebar()
         case "toggleToolbar": store.settings.showToolbar.toggle()
         case "toggleDeveloperMode": if let url = store.selectedTab?.tab?.url { store.settings.toggleDeveloperMode(url: url) }
+        case "sitePermissions":
+            guard let browser = main.currentBrowser, let url = store.selectedTab?.tab?.url, let window = main.window else { break }
+            let remembered = browser.rememberedPermissions()
+            let a = NSAlert()
+            a.messageText = "Permissions for \(URL(string: url)?.host ?? url)"
+            a.informativeText = remembered.isEmpty ? "This site has no remembered Allow or Block answers." : remembered.joined(separator: "\n")
+            if !remembered.isEmpty { a.addButton(withTitle: "Forget All") }
+            a.addButton(withTitle: remembered.isEmpty ? "OK" : "Cancel")
+            a.beginSheetModal(for: window) { resp in
+                if resp == .alertFirstButtonReturn, !remembered.isEmpty { browser.forgetRememberedPermissions() }
+            }
         case "reload": main.currentBrowser?.reload()
         case "hardReload": main.currentBrowser?.reloadIgnoringCache()
         case "stop": main.currentBrowser?.stopLoading()
@@ -698,7 +709,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         view.addItem(.separator())
         view.addItem(item("resetZoom")); view.addItem(item("zoomIn")); view.addItem(item("zoomOut"))
         view.addItem(.separator())
-        view.addItem(item("pictureInPicture"))
+        view.addItem(item("pictureInPicture")); view.addItem(item("sitePermissions"))
         view.addItem(.separator())
         for id in ["addSplitView", "closeSplitPane", "separateFromSplit", "flipSplitOrientation"] { view.addItem(item(id)) }
         view.addItem(.separator())
