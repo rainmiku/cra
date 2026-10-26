@@ -244,7 +244,7 @@ public:
         if (process_type.empty()) {
             // Same folder as ExtensionStore (AppPaths.supportDir/Extensions).
             NSString* dataDir = NSProcessInfo.processInfo.environment[@"CRA_DATA_DIR"]
-                ?: [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/Cra"];
+                ?: [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/io.github.rainmiku.cra"];
             NSString* dir = [dataDir stringByAppendingPathComponent:@"Extensions"];
             NSMutableArray<NSString*>* paths = [NSMutableArray array];
             for (NSString* name in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil]) {
@@ -326,7 +326,7 @@ private:
 
 // MARK: - DevTools client
 
-// Diagnostic log for the DevTools life cycle: `defaults write dk.kildahl.cra devToolsLog -bool YES`,
+// Diagnostic log for the DevTools life cycle: `defaults write io.github.rainmiku.cra devToolsLog -bool YES`,
 // then read $TMPDIR/cra-devtools.log.
 static void CraDevToolsLog(NSString* fmt, ...) NS_FORMAT_FUNCTION(1, 2);
 static void CraDevToolsLog(NSString* fmt, ...) {

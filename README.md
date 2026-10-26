@@ -55,7 +55,7 @@ publishes a release. See `docs/release.md` for the one-time certificate setup.
 - `docs/arc-reverse-engineering.md` — what was learned from Arc and how
 - `vendor/cef` — CEF binary distribution (not committed)
 
-Data lives in `~/Library/Application Support/Cra`.
+Data lives in `~/Library/Application Support/io.github.rainmiku.cra`.
 
 ## Scripting hooks
 
@@ -101,7 +101,7 @@ tab · ⇧⌘K clear Today · ⌘[ / ⌘] back/forward · ⌘Y history · ⇧⌘
 ⇧⌘J downloads · ⌥⌘I DevTools · ⌥⌘J console · ⌥⌘U source · ⌘F find.
 Like Chrome, pages get first chance at unreserved shortcuts (⌘F in Docs works).
 Every shortcut can be changed in Settings → Shortcuts; overrides are saved to
-`~/Library/Application Support/Cra/keybindings.json`.
+`~/Library/Application Support/io.github.rainmiku.cra/keybindings.json`.
 
 ## Rendering calibration hook
 

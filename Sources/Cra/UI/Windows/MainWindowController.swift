@@ -433,7 +433,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, BrowserM
         }
     }
 
-    /// Diagnostic log shared with the bridge: `defaults write dk.kildahl.cra devToolsLog -bool YES`.
+    /// Diagnostic log shared with the bridge: `defaults write io.github.rainmiku.cra devToolsLog -bool YES`.
     private static let devToolsLogEnabled = UserDefaults.standard.bool(forKey: "devToolsLog")
     private func devToolsLog(_ message: @autoclosure () -> String) {
         guard Self.devToolsLogEnabled else { return }

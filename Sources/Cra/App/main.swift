@@ -27,7 +27,7 @@ MainActor.assumeIsolated {
                                            useChromeStyle: useChromeStyle)
     if !started && CraCEFRuntime.anotherInstanceWasNotified() {
         // The running Cra got our command line; just activate it.
-        NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "dk.kildahl.cra")
+        NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "io.github.rainmiku.cra")
             .first { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }?
             .activate()
         exit(0)

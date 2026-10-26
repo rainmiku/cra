@@ -28,7 +28,7 @@ bootstrap() {
   rm -rf "$APP"
   mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
   sed -e "s/__VERSION__/0.0.0-dev/" -e "s/__BUILD__/0/" resources/Info.plist > "$APP/Contents/Info.plist"
-  $PB -c "Set :CFBundleExecutable $NAME" -c "Set :CFBundleIdentifier dk.kildahl.cra.dev" \
+  $PB -c "Set :CFBundleExecutable $NAME" -c "Set :CFBundleIdentifier io.github.rainmiku.cra.dev" \
       -c "Set :CFBundleName $NAME" -c "Set :CFBundleDisplayName $NAME" \
       -c "Delete :CFBundleURLTypes" -c "Delete :CFBundleDocumentTypes" \
       -c "Delete :UTExportedTypeDeclarations" "$APP/Contents/Info.plist"
@@ -44,7 +44,7 @@ bootstrap() {
     local helper="$APP/Contents/Frameworks/$NAME Helper$ns.app"
     mkdir -p "$helper/Contents/MacOS"
     sed -e "s/__NAME_SUFFIX__/$ns/g" -e "s/__PLIST_SUFFIX__/$ps/g" -e "s/__VERSION__/0.0.0-dev/" -e "s/__BUILD__/0/" \
-        -e "s/Cra Helper/$NAME Helper/g" -e "s/dk\.kildahl\.cra\.helper/dk.kildahl.cra.dev.helper/" \
+        -e "s/Cra Helper/$NAME Helper/g" -e "s/io\.github\.rainmiku\.cra\.helper/io.github.rainmiku.cra.dev.helper/" \
         resources/Helper-Info.plist > "$helper/Contents/Info.plist"
     echo -n "APPL????" > "$helper/Contents/PkgInfo"
   done

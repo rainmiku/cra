@@ -149,7 +149,7 @@ extension EnvironmentValues {
 }
 
 extension UTType {
-    static let craSidebarItem = UTType(exportedAs: "dk.kildahl.cra.sidebar-item")
+    static let craSidebarItem = UTType(exportedAs: "io.github.rainmiku.cra.sidebar-item")
 }
 
 struct SidebarDragItem: Codable, Transferable {

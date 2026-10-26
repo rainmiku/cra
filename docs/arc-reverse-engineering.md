@@ -208,7 +208,7 @@ Extensions: CEF 154 has no extension API for Alloy-style browsers. A spike
 (`cra://debug?chromeSpike=<url>`) proved the alternative: a Chrome-style Views window
 (`CefWindow` + `CefBrowserView`, `GetChromeToolbarType = CEF_CTT_NONE`, frameless, runtime
 style CHROME) attached as a child window over the content area loads unpacked extensions
-from `~/Library/Application Support/Cra/Extensions/*` via `--load-extension` (an MV3
+from `~/Library/Application Support/io.github.rainmiku.cra/Extensions/*` via `--load-extension` (an MV3
 content script rendered its banner). Chrome style also docks DevTools natively. Moving the
 page browsers to that hosting is the route to extensions; one Chrome-style window per tab.
 
@@ -408,7 +408,7 @@ Pages are now Chrome-style CEF browsers (`CefBrowserView` in a frameless `CefWin
 windows over the content card and positioned from `ShellView.onWebFrame` (animated with the
 sidebar through `onAnimateWebFrame`). The status bubble, toasts and find bar moved into a
 transparent overlay panel above the page windows. This is what makes Chrome extensions work:
-folders under `~/Library/Application Support/Cra/Extensions` are passed with
+folders under `~/Library/Application Support/io.github.rainmiku.cra/Extensions` are passed with
 `--load-extension` at start-up (verified with an MV3 content script on a real tab). Popups
 come through `GetDelegateForPopupBrowserView`/`OnPopupBrowserViewCreated` and are hosted
 the same way; Chrome's DevTools popup is caught with `OnBeforeDevToolsPopup` and docked by
@@ -651,7 +651,7 @@ Two hosting bugs found on the way, both affecting every page, not just DevTools:
   `ChromiumWindowCorners` overrides the frame view's corner queries for docked page/DevTools windows
   only; the content layer's mask then gives the card's 6 pt bottom corners.
 
-Debug aids: `defaults write dk.kildahl.cra devToolsLog -bool YES` logs the DevTools life cycle to
+Debug aids: `defaults write io.github.rainmiku.cra devToolsLog -bool YES` logs the DevTools life cycle to
 `$TMPDIR/cra-devtools.log`; `cra://debug?devtoolsjs=<script>` runs a script in the current tab's
 DevTools frontend (used to toggle device mode, dock sides and drag the splitter in tests).
 

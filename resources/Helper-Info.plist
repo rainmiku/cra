@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Cra Helper__NAME_SUFFIX__</string>
 	<key>CFBundleIdentifier</key>
-	<string>dk.kildahl.cra.helper__PLIST_SUFFIX__</string>
+	<string>io.github.rainmiku.cra.helper__PLIST_SUFFIX__</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

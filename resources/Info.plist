@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Cra</string>
 	<key>CFBundleIdentifier</key>
-	<string>dk.kildahl.cra</string>
+	<string>io.github.rainmiku.cra</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -79,7 +79,7 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>dk.kildahl.cra.sidebar-item</string>
+			<string>io.github.rainmiku.cra.sidebar-item</string>
 			<key>UTTypeDescription</key>
 			<string>Cra sidebar item</string>
 			<key>UTTypeConformsTo</key>
