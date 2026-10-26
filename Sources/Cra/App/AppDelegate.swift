@@ -200,7 +200,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func openExternalURL(_ url: String) {
         if let u = URL(string: url), u.scheme == "cra" {
-            handleInternalURL(u)
+            // Any app, and any web page through the OS's link handoff, can send cra://
+            // URLs: they get only harmless commands. The rest is CRA_COMMAND_FILE's.
+            if Self.allowsExternally(u) { handleInternalURL(u) } else { NSLog("Cra: ignored cra:// URL from another app: %@", url) }
             return
         }
         // Arc: "Links from other apps open in Little Arc".
@@ -249,12 +251,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         for w in littleWindows { w.closeWindow() }
     }
 
-    /// cra://commandbar?query=…&mode=edit, cra://action/<id>, cra://open?url=…,
-    /// cra://dismiss.
+    /// The cra:// commands other apps may send: the command bar, dismissing UI, and
+    /// opening an http(s) page.
+    private static func allowsExternally(_ u: URL) -> Bool {
+        switch u.host {
+        case "commandbar", "dismiss":
+            return true
+        case "open":
+            let target = URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "url" }?.value
+            let scheme = target.flatMap { URL(string: $0)?.scheme?.lowercased() }
+            return scheme == "http" || scheme == "https"
+        default:
+            return false
+        }
+    }
+
     /// Arc marks a tab chosen from the keyboard with its yellow/black focus ring.
     private func markKeyboardFocus() { main.sidebarUI.keyboardFocusID = store.selectedTabID }
 
-    func handleInternalURL(_ u: URL) {
+    /// cra://commandbar?query=…&mode=edit, cra://action/<id>, cra://open?url=…,
+    /// cra://dismiss, plus scripting and debug commands. Never reachable from web
+    /// content; other apps get the subset in `allowsExternally`.
+    private func handleInternalURL(_ u: URL) {
         let comps = URLComponents(url: u, resolvingAgainstBaseURL: false)
         func q(_ name: String) -> String? { comps?.queryItems?.first { $0.name == name }?.value }
         // Actions keep their target: a key Little Window stays key (perform routes to it).
@@ -397,8 +415,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     /// Testing aid: with CRA_COMMAND_FILE set, every line appended to that file
-    /// is handled like a cra:// URL (a second instance run with CRA_DATA_DIR
-    /// cannot receive cra:// URLs, which LaunchServices routes to the installed app).
+    /// is handled like a cra:// URL, with every command available (other apps only
+    /// get `allowsExternally`'s; a second instance run with CRA_DATA_DIR gets no
+    /// cra:// URLs at all, LaunchServices routes them to the installed app).
     private var commandFileOffset: UInt64 = 0
     private var commandFileTimer: Timer?
     private func installCommandFileWatcher() {

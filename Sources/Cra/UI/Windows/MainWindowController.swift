@@ -708,9 +708,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, BrowserM
         showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
-    func browserManagerOpenInternalURL(_ url: String) {
-        if let u = URL(string: url) { app.handleInternalURL(u) }
-    }
 
     // MARK: Tabs
 

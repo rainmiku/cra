@@ -59,13 +59,20 @@ Data lives in `~/Library/Application Support/Cra`.
 
 ## Scripting hooks
 
-Cra registers the `cra://` scheme so it can be driven from a shell (handy for
-testing without touching the keyboard):
+Cra registers the `cra://` scheme. Any app can send it, so it only takes harmless
+commands (web pages can't send it at all):
 
-    open "cra://action/newTab"              # any action id from KeyBindings.swift
     open "cra://commandbar?query=github"    # open the command bar with text
-    open "cra://open?url=https://example.com&background=1"
+    open "cra://open?url=https://example.com&background=1"   # http(s) only
     open "cra://dismiss"                    # close sheets, command bar, find bar
+
+Everything else (`action/<id>` with any action id from KeyBindings.swift, `key`,
+`import`, `debug`, `navigate`, and `open` with other URLs) is a testing hook: start Cra
+with `CRA_COMMAND_FILE` set and append cra:// lines to that file
+(`scripts/smoke-test.sh` does this):
+
+    open -a Cra --env CRA_COMMAND_FILE=/tmp/cra-commands   # Cra not already running
+    echo "cra://action/newTab" >> /tmp/cra-commands
 
 ## Little Windows (Arc's Little Arc)
 
@@ -73,7 +80,7 @@ Links from other apps open in a Little Window: a small, sidebar-less window with
 search pill and an "Open in <Space> ⌘O" button. The page is not in the sidebar; closing
 the window (⌘W) archives it to the Library, ⌘O (or the chevron menu) moves it into a space
 as a Today tab, keeping the live page. ⌥⌘N opens an empty one. Settings → Tabs turns the
-link routing off; `open "cra://open?url=…&little=1"` opens one from a shell.
+link routing off; `open "cra://open?url=https://…&little=1"` opens one from a shell.
 
 ## Import
 
@@ -82,7 +89,7 @@ Chrome, Brave, Edge, Opera, Opera GX, Vivaldi, Chromium, Firefox, Zen and Safari
 StorableSidebar.json / StorableArchiveItems.json, Dia's profile containers, and
 bookmarks, history, extensions, passwords and cookies from the other browsers.
 Spaces with the same name merge; tabs already present are skipped.
-Headless: `open "cra://import?source=arc&archive=1&settings=1"`.
+Headless: `cra://import?source=arc&archive=1&settings=1` through `CRA_COMMAND_FILE`.
 
 ## Keyboard
 
@@ -98,8 +105,9 @@ Every shortcut can be changed in Settings → Shortcuts; overrides are saved to
 
 ## Rendering calibration hook
 
-`open "cra://debug?lift=0&liftInactive=0.75&alpha=1&material=13&state=follows&appearance=dark"`
-changes the vibrancy parameters live (see `Sources/Cra/UI/Tuning.swift`). `material` is the
+`cra://debug?lift=0&liftInactive=0.75&alpha=1&material=13&state=follows&appearance=dark`
+through `CRA_COMMAND_FILE` changes the vibrancy parameters live (`CRA_TUNING` sets them at
+launch; see `Sources/Cra/UI/Tuning.swift`). `material` is the
 raw `NSVisualEffectView.Material` value, `alpha` scales the gradient opacity.
 
 ## DevTools
@@ -134,4 +142,4 @@ View ▸ Picture in Picture (or "pip" in the command bar, or the context menu on
 page's video out into Arc's floating window: bare 16:9, 6 pt corners, top-right, draggable and
 resizable from its edges. Hovering it shows close, back to tab, play/pause and ±15 s buttons. Leaving a tab whose video is playing pops it
 out automatically (Settings ▸ Tabs, "Enable Picture in Picture when you leave a video tab"), and
-coming back to the tab brings the video home. `open "cra://action/pictureInPicture"` toggles it.
+coming back to the tab brings the video home. `cra://action/pictureInPicture` (through `CRA_COMMAND_FILE`) toggles it.

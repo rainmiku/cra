@@ -39,7 +39,6 @@ protocol BrowserManagerDelegate: AnyObject {
     func browserManagerHandleKey(_ event: NSEvent) -> Bool
     func browserManagerHandleUnhandledKey(_ event: NSEvent) -> Bool
     func browserManagerFocusedBrowser(_ tabID: UUID)
-    func browserManagerOpenInternalURL(_ url: String)
 }
 
 /// Creates, shows, hides and tears down CEF browsers inside a container view.
@@ -298,7 +297,7 @@ final class BrowserManager: NSObject, @preconcurrency CraBrowserDelegate {
     }
 
     func browser(_ browser: CraBrowser, requestsNewTabWithURL url: String, inBackground background: Bool) {
-        if url.hasPrefix("cra://") { delegate?.browserManagerOpenInternalURL(url); return }
+        if url.hasPrefix("cra://") { return }  // pages never drive the app
         let sourceSpace = tabID(of: browser).flatMap { store.spaceID(ofItem: $0) }
         let parentIndex = tabID(of: browser).flatMap { id -> Int? in
             guard let it = store.item(id), let p = it.parentID, store.rootContainer(of: id) != nil,
@@ -316,7 +315,7 @@ final class BrowserManager: NSObject, @preconcurrency CraBrowserDelegate {
     }
 
     func browser(_ browser: CraBrowser, popupHostForURL url: String, inBackground background: Bool) -> CraBrowser? {
-        if url.hasPrefix("cra://") { delegate?.browserManagerOpenInternalURL(url); return nil }
+        if url.hasPrefix("cra://") { return nil }  // pages never drive the app
         let sourceSpace = tabID(of: browser).flatMap { store.spaceID(ofItem: $0) }
         let tab = store.createTab(url: url, in: sourceSpace, select: !background)
         if background { store.markUnread(tab.id, true) }

@@ -625,13 +625,13 @@ final class LittleWindowController: NSWindowController, NSWindowDelegate, @preco
 
     /// Links that want a new tab open another little window (Arc does the same).
     func browser(_ browser: CraBrowser, requestsNewTabWithURL url: String, inBackground background: Bool) {
-        if url.hasPrefix("cra://") { if let u = URL(string: url) { app.handleInternalURL(u) }; return }
+        if url.hasPrefix("cra://") { return }  // pages never drive the app
         app.openLittleWindow(url: url, activate: !background)
         if background { window?.makeKeyAndOrderFront(nil) }
     }
 
     func browser(_ browser: CraBrowser, popupHostForURL url: String, inBackground background: Bool) -> CraBrowser? {
-        if url.hasPrefix("cra://") { if let u = URL(string: url) { app.handleInternalURL(u) }; return nil }
+        if url.hasPrefix("cra://") { return nil }  // pages never drive the app
         let w = app.makeLittleWindow(url: nil)
         w.state.url = url
         w.show()

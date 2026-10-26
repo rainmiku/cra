@@ -8,7 +8,7 @@ final class CraTuning {
     static let shared: CraTuning = {
         let t = CraTuning()
         // CRA_TUNING="lift=0.1&alpha=1&material=21" configures a test instance at launch
-        // (cra://debug URLs only reach the installed app).
+        // (cra://debug only works through CRA_COMMAND_FILE).
         if let env = ProcessInfo.processInfo.environment["CRA_TUNING"] {
             var q: [String: String] = [:]
             for pair in env.split(separator: "&") {
