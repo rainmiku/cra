@@ -56,6 +56,7 @@ build() {
   local bin
   bin="$(swift build -c debug --scratch-path "$SCRATCH" --show-bin-path)"
   [ -d "$APP/Contents/Frameworks/$NAME Helper.app" ] || bootstrap
+  [ -d "$APP/Contents/Frameworks/Sparkle.framework" ] || cp -R "$bin/Sparkle.framework" "$APP/Contents/Frameworks/"
   for entry in "${HELPERS[@]}"; do
     local ns="${entry%%|*}"
     local helper="$APP/Contents/Frameworks/$NAME Helper$ns.app"

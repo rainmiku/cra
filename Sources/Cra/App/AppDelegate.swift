@@ -1,5 +1,6 @@
 import AppKit
 import CraCEF
+import Sparkle
 import SwiftUI
 
 @MainActor
@@ -18,6 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var isRelaunching = false
     private var archiveWindow: NSWindow?
     private lazy var extensionsMenu = ExtensionsMenu(app: self)
+    /// Sparkle, only in builds that carry an update feed and its EdDSA public key
+    /// (scripts/build.sh adds them when CRA_SPARKLE_PUBLIC_KEY is set).
+    private lazy var updater: SPUStandardUpdaterController? =
+        Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") == nil ? nil
+            : SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
     /// Arc's Little Arc windows: small, sidebar-less, disposable (see LittleWindowController).
     private(set) var littleWindows: [LittleWindowController] = []
 
@@ -622,6 +628,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         let appMenu = NSMenu(title: "Cra")
         appMenu.addItem(withTitle: "About Cra", action: #selector(showAbout), keyEquivalent: "").target = self
+        if let updater {
+            appMenu.addItem(withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                            keyEquivalent: "").target = updater
+        }
         appMenu.addItem(.separator())
         appMenu.addItem(item("settings"))
         let setDefault = item("setDefaultBrowser")

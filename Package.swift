@@ -26,6 +26,10 @@ let package = Package(
         .executable(name: "Cra", targets: ["Cra"]),
         .executable(name: "CraHelper", targets: ["CraHelper"]),
     ],
+    dependencies: [
+        // In-app updates. scripts/build.sh copies Sparkle.framework into the bundle.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+    ],
     targets: [
         // Objective-C++ bridge between Swift and CEF.
         .target(
@@ -56,9 +60,10 @@ let package = Package(
         // The browser itself: AppKit window, SwiftUI sidebar and command bar.
         .executableTarget(
             name: "Cra",
-            dependencies: ["CraCEF"],
+            dependencies: ["CraCEF", .product(name: "Sparkle", package: "Sparkle")],
             path: "Sources/Cra",
-            swiftSettings: [.unsafeFlags(["-Onone"], .when(configuration: .debug))]
+            swiftSettings: [.unsafeFlags(["-Onone"], .when(configuration: .debug))],
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
         ),
     ],
     swiftLanguageVersions: [.v5],

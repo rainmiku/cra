@@ -11,6 +11,9 @@ name: Release
 #   APPLE_ID                     Apple ID used for notarization
 #   APPLE_TEAM_ID                10-character team id
 #   APPLE_APP_PASSWORD           app-specific password for that Apple ID
+#   SPARKLE_PRIVATE_KEY          Sparkle EdDSA private key (generate_keys -x), signs appcast.xml
+# Variable (same page, Variables tab):
+#   SPARKLE_PUBLIC_KEY           its public key (generate_keys -p); turns on in-app updates
 
 on:
   push:
@@ -33,6 +36,10 @@ jobs:
       CRA_VERSION: ${{ github.event.inputs.version || github.ref_name }}
       # The secrets context is not allowed in step `if`s, so resolve it once here.
       HAS_CERT: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+      HAS_SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
+      # In-app updates read the newest release's appcast.xml (scripts/appcast.sh).
+      CRA_SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+      CRA_UPDATE_FEED_URL: ${{ github.server_url }}/${{ github.repository }}/releases/latest/download/appcast.xml
     steps:
       - uses: actions/checkout@v7
 
@@ -75,6 +82,16 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: scripts/release.sh
+
+      - name: Sparkle appcast
+        if: ${{ env.CRA_SPARKLE_PUBLIC_KEY != '' }}
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          CRA_DOWNLOAD_BASE: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}
+        run: |
+          # Without the feed, installed copies would never see this or any later release.
+          [ "$HAS_SPARKLE_KEY" = true ] || { echo "::error::SPARKLE_PUBLIC_KEY is set but the SPARKLE_PRIVATE_KEY secret is missing."; exit 1; }
+          scripts/appcast.sh build/Cra.app
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
