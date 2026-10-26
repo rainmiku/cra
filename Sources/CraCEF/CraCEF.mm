@@ -1525,7 +1525,6 @@ static void MarkProfileExitedCleanly(NSString* cachePath) {
 
     CefMainArgs mainArgs(*_NSGetArgc(), *_NSGetArgv());
     CefSettings settings;
-    settings.no_sandbox = true;
     CefString(&settings.cache_path) = CefStringFromNS(cachePath);
     CefString(&settings.root_cache_path) = CefStringFromNS(cachePath);
     settings.persist_session_cookies = true;

@@ -33,7 +33,7 @@ fi
 if [ ! -f vendor/cef/build/libcef_dll_wrapper/libcef_dll_wrapper.a ]; then
   echo "Building libcef_dll_wrapper..."
   cmake -S vendor/cef -B vendor/cef/build -G "Unix Makefiles" \
-    -DCMAKE_BUILD_TYPE=Release -DPROJECT_ARCH=arm64 -DUSE_SANDBOX=OFF \
+    -DCMAKE_BUILD_TYPE=Release -DPROJECT_ARCH=arm64 -DUSE_SANDBOX=ON \
     -DCMAKE_OSX_ARCHITECTURES=arm64 > vendor/cef/build-configure.log
   cmake --build vendor/cef/build --target libcef_dll_wrapper -j "$(sysctl -n hw.ncpu)" > vendor/cef/build-wrapper.log
 fi
