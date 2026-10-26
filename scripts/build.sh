@@ -41,6 +41,7 @@ echo -n "APPL????" > "$APP/Contents/PkgInfo"
 
 FRAMEWORK_SRC="$ROOT/vendor/cef/Release/Chromium Embedded Framework.framework"
 cp -R "$FRAMEWORK_SRC" "$APP/Contents/Frameworks/"
+scripts/patch-cef-keychain.sh "$APP/Contents/Frameworks/Chromium Embedded Framework.framework"
 cp -R "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/"
 
 # CEF needs one helper app per process type (see cef_variables.cmake,

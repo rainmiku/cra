@@ -95,9 +95,6 @@ enum ChromiumCrypto {
         return key
     }
 
-    /// Cra runs Chromium with --use-mock-keychain, whose Keychain secret is fixed.
-    static let craKey = key(fromSecret: "mock_password")
-
     private static let iv = [UInt8](repeating: 0x20, count: kCCBlockSizeAES128)
 
     static func decrypt(_ blob: Data, key: Data) -> Data? {
@@ -105,7 +102,7 @@ enum ChromiumCrypto {
         return crypt(CCOperation(kCCDecrypt), Data(blob.dropFirst(3)), key: key)
     }
 
-    static func encrypt(_ plain: Data, key: Data = craKey) -> Data {
+    static func encrypt(_ plain: Data, key: Data) -> Data {
         Data("v10".utf8) + (crypt(CCOperation(kCCEncrypt), plain, key: key) ?? Data())
     }
 
@@ -224,8 +221,8 @@ enum SQLite {
 // MARK: - Staging and applying
 
 enum CredentialImport {
-    /// Staged rows, already encrypted for Cra's profile, so the file is no
-    /// easier to read than the databases it feeds.
+    /// Staged rows, already encrypted with the profile's key (SafeStorage), so
+    /// the file is no easier to read than the databases it feeds.
     private struct Pending: Codable {
         struct Cookie: Codable { var c: ImportedCookie; var encrypted: Data }
         struct Login: Codable { var l: ImportedLogin; var encrypted: Data }
@@ -240,17 +237,32 @@ enum CredentialImport {
     @discardableResult
     static func stage(_ creds: ImportedCredentials) -> Bool {
         guard !creds.isEmpty else { return true }
+        guard let key = SafeStorage.profileKey else { return false }
         var pending = (try? Data(contentsOf: pendingFile)).flatMap { try? JSONDecoder().decode(Pending.self, from: $0) } ?? Pending()
         for var c in creds.cookies {
-            let encrypted = ChromiumCrypto.encrypt(Data(c.value.utf8))
+            let encrypted = ChromiumCrypto.encrypt(Data(c.value.utf8), key: key)
             c.value = ""
             pending.cookies.append(.init(c: c, encrypted: encrypted))
         }
         for var l in creds.logins {
-            let encrypted = ChromiumCrypto.encrypt(Data(l.password.utf8))
+            let encrypted = ChromiumCrypto.encrypt(Data(l.password.utf8), key: key)
             l.password = ""
             pending.logins.append(.init(l: l, encrypted: encrypted))
         }
+        return save(pending)
+    }
+
+    /// Re-encrypts a staged file with another key (SafeStorage's migration).
+    static func reencryptPending(from old: Data, to new: Data) -> Bool {
+        guard let data = try? Data(contentsOf: pendingFile),
+              var pending = try? JSONDecoder().decode(Pending.self, from: data) else { return true }
+        func rekey(_ blob: Data) -> Data? { ChromiumCrypto.decrypt(blob, key: old).map { ChromiumCrypto.encrypt($0, key: new) } }
+        pending.cookies = pending.cookies.compactMap { p in rekey(p.encrypted).map { .init(c: p.c, encrypted: $0) } }
+        pending.logins = pending.logins.compactMap { p in rekey(p.encrypted).map { .init(l: p.l, encrypted: $0) } }
+        return save(pending)
+    }
+
+    private static func save(_ pending: Pending) -> Bool {
         guard let data = try? JSONEncoder().encode(pending) else { return false }
         do {
             try data.write(to: pendingFile, options: [.atomic, .completeFileProtection])
@@ -265,8 +277,9 @@ enum CredentialImport {
     /// when the profile's databases are missing (no first run yet) or busy.
     static func applyPending(profileDir: URL) {
         guard let data = try? Data(contentsOf: pendingFile),
-              let pending = try? JSONDecoder().decode(Pending.self, from: data) else { return }
-        let cookiesOK = pending.cookies.isEmpty || insertCookies(pending.cookies, into: profileDir.appendingPathComponent("Cookies"))
+              let pending = try? JSONDecoder().decode(Pending.self, from: data),
+              let key = SafeStorage.profileKey else { return }
+        let cookiesOK = pending.cookies.isEmpty || insertCookies(pending.cookies, into: profileDir.appendingPathComponent("Cookies"), key: key)
         let loginsOK = pending.logins.isEmpty || insertLogins(pending.logins, into: profileDir.appendingPathComponent("Login Data"))
         if cookiesOK && loginsOK {
             try? FileManager.default.removeItem(at: pendingFile)
@@ -309,7 +322,7 @@ enum CredentialImport {
         return false
     }
 
-    private static func insertCookies(_ cookies: [Pending.Cookie], into url: URL) -> Bool {
+    private static func insertCookies(_ cookies: [Pending.Cookie], into url: URL, key: Data) -> Bool {
         guard let db = open(url) else { return false }
         defer { sqlite3_close(db) }
         let version = Int(SQLite.rows(db, "SELECT value FROM meta WHERE key = 'version'").first?["value"] as? String ?? "") ?? 0
@@ -317,8 +330,8 @@ enum CredentialImport {
             for p in cookies {
                 let c = p.c
                 var encrypted = p.encrypted
-                if version >= 24, let plain = ChromiumCrypto.decrypt(encrypted, key: ChromiumCrypto.craKey) {
-                    encrypted = ChromiumCrypto.encrypt(ChromiumCrypto.hostDigest(c.host) + plain)
+                if version >= 24, let plain = ChromiumCrypto.decrypt(encrypted, key: key) {
+                    encrypted = ChromiumCrypto.encrypt(ChromiumCrypto.hostDigest(c.host) + plain, key: key)
                 }
                 let ok = insert(db, table: "cookies", values: [
                     "creation_utc": c.created, "host_key": c.host, "top_frame_site_key": "", "name": c.name, "value": "",

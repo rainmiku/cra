@@ -923,8 +923,10 @@ browsers on this Mac read read-only. Dia's onboarding itself was not re-run past
   PBKDF2-SHA1(secret, "saltysalt", 1003, 16), IV = 16×0x20; the secret is the login-Keychain item
   "<Name> Safe Storage" (one OS password prompt per browser). Cookies DB version ≥ 24 prefixes the
   plaintext with SHA-256(host_key) — checked to confirm the key, and re-added for Cra's own profile.
-  Cra re-encrypts every row with its own key (Cra runs Chromium `--use-mock-keychain`, secret
-  "mock_password") and stages them to `pending-credentials.json` (0600); `main.swift` writes them into
+  Cra re-encrypts every row with its own key (`SafeStorage`: the "Cra Data Safe Storage" Keychain
+  item, which `scripts/patch-cef-keychain.sh` makes CEF use instead of "Chromium Safe Storage"; older
+  builds used `--use-mock-keychain`, secret "mock_password", and are migrated once) and stages them
+  to `pending-credentials.json` (0600); `main.swift` writes them into
   the profile's `Cookies` / `Login Data` before CEF starts (both are locked while Chromium runs) and
   only when no other instance is up, then deletes the file. Verified end-to-end against this Mac's Dia
   profile (1 login + 3052 cookies decrypted, staged, applied on relaunch, idempotent on re-run).

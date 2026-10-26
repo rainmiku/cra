@@ -35,6 +35,7 @@ bootstrap() {
   [ -f resources/AppIcon.icns ] && cp resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
   local fw="$APP/Contents/Frameworks/Chromium Embedded Framework.framework"
   cp -R "$ROOT/vendor/cef/Release/Chromium Embedded Framework.framework" "$APP/Contents/Frameworks/"
+  scripts/patch-cef-keychain.sh "$fw"
   find "$fw/Libraries" -name '*.dylib' -exec codesign --force --sign - {} \; 2>/dev/null
   codesign --force --sign - "$fw"
   for entry in "${HELPERS[@]}"; do
@@ -55,7 +56,9 @@ build() {
   swift build -c debug --scratch-path "$SCRATCH" || return 1
   local bin
   bin="$(swift build -c debug --scratch-path "$SCRATCH" --show-bin-path)"
-  [ -d "$APP/Contents/Frameworks/$NAME Helper.app" ] || bootstrap
+  # Bundles made before CEF's Keychain item was renamed get the patched framework too.
+  [ -d "$APP/Contents/Frameworks/$NAME Helper.app" ] \
+    && scripts/patch-cef-keychain.sh --check "$APP/Contents/Frameworks/Chromium Embedded Framework.framework" || bootstrap
   [ -d "$APP/Contents/Frameworks/Sparkle.framework" ] || cp -R "$bin/Sparkle.framework" "$APP/Contents/Frameworks/"
   for entry in "${HELPERS[@]}"; do
     local ns="${entry%%|*}"

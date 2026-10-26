@@ -231,10 +231,10 @@ public:
     void OnBeforeCommandLineProcessing(const CefString& process_type,
                                        CefRefPtr<CefCommandLine> command_line) override {
         if (!process_type.empty()) return;
-        // Avoid the "wants to use your confidential information stored in
-        // Chromium Safe Storage" keychain prompt. Cookies are still encrypted,
-        // just with a key that is not in the user's keychain.
-        command_line->AppendSwitch("use-mock-keychain");
+        // Cookies and passwords are encrypted with Cra's own Keychain secret
+        // (SafeStorage.swift). SafeStorage sets CRA_MOCK_KEYCHAIN only while a
+        // profile written with the old fixed key has not been migrated yet.
+        if (getenv("CRA_MOCK_KEYCHAIN")) command_line->AppendSwitch("use-mock-keychain");
         // Chrome-style windows are ours; Chrome must not restore or reopen them.
         command_line->AppendSwitch("no-startup-window");
         command_line->AppendSwitch("disable-session-crashed-bubble");
