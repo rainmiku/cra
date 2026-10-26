@@ -107,12 +107,16 @@ Order matters because each signature seals what is inside it:
 1. every `.dylib` in `Chromium Embedded Framework.framework/Libraries`
 2. the framework itself
 3. Sparkle's XPC services, `Autoupdate`, `Updater.app`, then `Sparkle.framework`
-4. the five helper apps, each with `resources/CraHelper.entitlements`
-5. `Cra.app` with `resources/Cra.entitlements`
+4. the five helper apps: Renderer and GPU with `resources/CraHelperJIT.entitlements`
+   (JIT, for V8 and SwiftShader), the others with the empty `resources/CraHelper.entitlements`
+5. `Cra.app` with `resources/Cra.entitlements` (camera, microphone and location, so sites
+   can ask for them)
 
-The entitlements are the hardened-runtime exceptions Chromium needs (JIT, unsigned
-executable memory, library validation off, dyld environment variables), plus camera,
-microphone and location so sites can ask for them.
+Cra and its helpers run with the hardened runtime and library validation, and nothing
+allows dyld environment variables, so another process cannot inject code that inherits
+Cra's camera, microphone or Keychain access. These follow Chromium's own entitlement files.
+Ad-hoc builds carry the same entitlements plus `disable-library-validation`, because
+library validation refuses ad-hoc-signed libraries (they have no Team ID).
 
 ## Later
 

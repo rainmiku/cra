@@ -59,19 +59,26 @@ for entry in "|" " (Alerts)|.alerts" " (GPU)|.gpu" " (Plugin)|.plugin" " (Render
 done
 
 # Code signing, innermost first. Ad-hoc by default; set CRA_SIGN_IDENTITY to a
-# "Developer ID Application: …" identity for a distributable build with the
-# hardened runtime, timestamps and the CEF entitlements. scripts/release.sh
-# then notarizes the result.
+# "Developer ID Application: …" identity for a distributable build with
+# timestamps. scripts/release.sh then notarizes the result. Cra and its helpers
+# get the hardened runtime either way, so no other process can inject code
+# (DYLD_INSERT_LIBRARIES) that inherits their camera, microphone and Keychain access.
 IDENTITY="${CRA_SIGN_IDENTITY:--}"
 sign() {  # sign <path> [entitlements]
   local target="$1" ent="${2:-}"
-  if [ "$IDENTITY" = "-" ]; then
-    codesign --force --sign - "$target"
-  else
-    local args=(--force --sign "$IDENTITY" --options runtime --timestamp)
+  local args=(--force --sign "$IDENTITY")
+  if [ "$IDENTITY" != "-" ]; then
+    args+=(--options runtime --timestamp)
     [ -n "$ent" ] && args+=(--entitlements "$ent")
-    codesign "${args[@]}" "$target"
+  elif [ -n "$ent" ]; then
+    # Ad-hoc code has no Team ID, and library validation refuses ad-hoc libraries
+    # ("different Team IDs"), so ad-hoc builds turn it off.
+    local adhoc="$STAGE/$(basename "$ent")"
+    cp "$ent" "$adhoc"
+    /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$adhoc" >/dev/null
+    args+=(--options runtime --entitlements "$adhoc")
   fi
+  codesign "${args[@]}" "$target"
 }
 FW="$APP/Contents/Frameworks/Chromium Embedded Framework.framework"
 find "$FW/Libraries" -name '*.dylib' -print0 2>/dev/null | while IFS= read -r -d '' lib; do sign "$lib"; done
@@ -81,7 +88,12 @@ for part in XPCServices/Installer.xpc XPCServices/Downloader.xpc Autoupdate Upda
   sign "$SPARKLE/Versions/B/$part"
 done
 sign "$SPARKLE"
-for h in "$APP"/Contents/Frameworks/*.app; do sign "$h" "$ROOT/resources/CraHelper.entitlements"; done
+for h in "$APP"/Contents/Frameworks/*.app; do
+  case "$h" in
+    *" (GPU).app"|*" (Renderer).app") sign "$h" "$ROOT/resources/CraHelperJIT.entitlements" ;;
+    *) sign "$h" "$ROOT/resources/CraHelper.entitlements" ;;
+  esac
+done
 sign "$APP" "$ROOT/resources/Cra.entitlements"
 if [ "$IDENTITY" != "-" ]; then
   codesign --verify --deep --strict --verbose=2 "$APP"

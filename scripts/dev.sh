@@ -8,6 +8,7 @@
 # installed Cra, `killall Cra` elsewhere leaves it alone, and it never claims cra:// or
 # http links. CEF is copied and signed once; each rebuild only swaps the Cra binaries,
 # in a separate SwiftPM scratch dir so parallel `scripts/build.sh` runs don't collide.
+# Unlike build.sh it signs without the hardened runtime, so a debugger can attach.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
@@ -64,11 +65,12 @@ build() {
     || bootstrap
   [ -d "$APP/Contents/Frameworks/Sparkle.framework" ] || cp -R "$bin/Sparkle.framework" "$APP/Contents/Frameworks/"
   for entry in "${HELPERS[@]}"; do
-    local ns="${entry%%|*}"
+    local ns="${entry%%|*}" ent=resources/CraHelper.entitlements
+    case "$ns" in " (GPU)"|" (Renderer)") ent=resources/CraHelperJIT.entitlements ;; esac
     local helper="$APP/Contents/Frameworks/$NAME Helper$ns.app"
     if ! cmp -s "$bin/CraHelper" "$helper/Contents/MacOS/$NAME Helper$ns"; then
       cp "$bin/CraHelper" "$helper/Contents/MacOS/$NAME Helper$ns"
-      codesign --force --sign - --entitlements resources/CraHelper.entitlements "$helper"
+      codesign --force --sign - --entitlements "$ent" "$helper"
     fi
   done
   cp "$bin/Cra" "$APP/Contents/MacOS/$NAME"

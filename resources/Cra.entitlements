@@ -2,23 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Hardened-runtime exceptions Chromium Embedded Framework needs (same set as CEF's cefclient). -->
-	<key>com.apple.security.cs.allow-jit</key>
-	<true/>
-	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-	<true/>
-	<key>com.apple.security.cs.disable-library-validation</key>
-	<true/>
-	<key>com.apple.security.cs.allow-dyld-environment-variables</key>
-	<true/>
-	<!-- Sites may ask for these; the Info.plist carries the usage strings. -->
+	<!-- No hardened-runtime exceptions (Chromium's app-entitlements.plist has none): the
+	     browser process runs no JIT code and keeps library validation and the dyld
+	     environment lockdown. Sites may ask for these; the Info.plist carries the usage strings. -->
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
 	<key>com.apple.security.device.camera</key>
 	<true/>
 	<key>com.apple.security.personal-information.location</key>
-	<true/>
-	<key>com.apple.security.automation.apple-events</key>
 	<true/>
 </dict>
 </plist>
