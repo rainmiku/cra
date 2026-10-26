@@ -1,0 +1,162 @@
+name: CEF update
+
+# Checks the CEF build index for a newer stable macosarm64 build than the pin in
+# scripts/fetch-cef.sh. When there is one, bumps the pin (version + SHA-1),
+# builds, runs scripts/smoke-test.sh and opens a pull request on cef/<version>.
+# A failing build or smoke test still opens the pull request, as a draft, so a
+# security update never stalls silently (a new Chromium major can need bridge
+# fixes in Sources/CraCEF).
+#
+# Optional secret CEF_BOT_TOKEN: a fine-grained token (contents + pull requests:
+# write). Pull requests opened with the default GITHUB_TOKEN do not trigger the
+# CI workflow; with this token they do.
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: CEF version to pin (default newest stable), e.g. 156.0.14+g4fa4ab5+chromium-156.0.8078.48
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cef-update
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    name: Look for a newer CEF
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.existing.outputs.version }}
+      sha1: ${{ steps.pick.outputs.sha1 }}
+      current: ${{ steps.pick.outputs.current }}
+      major_bump: ${{ steps.pick.outputs.major_bump }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Pick version
+        id: pick
+        env:
+          REQUESTED: ${{ github.event.inputs.version }}
+        run: |
+          curl -fsSL --retry 3 https://cef-builds.spotifycdn.com/index.json -o "$RUNNER_TEMP/index.json"
+          python3 - "$RUNNER_TEMP/index.json" <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, re, sys
+          src = open("scripts/fetch-cef.sh").read()
+          current = re.search(r'^CEF_VERSION="\$\{CEF_VERSION:-(.*)\}"$', src, re.M).group(1)
+          key = lambda v: tuple(int(n) for n in v.split("+")[0].split("."))
+          builds = {}
+          for b in json.load(open(sys.argv[1]))["macosarm64"]["versions"]:
+              if b["channel"] != "stable":
+                  continue
+              for f in b["files"]:
+                  if f["type"] == "minimal":
+                      builds[b["cef_version"]] = f["sha1"]
+          requested = os.environ.get("REQUESTED", "").strip()
+          if requested:
+              if requested not in builds:
+                  sys.exit(f"{requested} is not a stable macosarm64 build in the CEF index")
+              version = requested
+          else:
+              version = max(builds, key=key)
+              if key(version) <= key(current):
+                  version = ""
+          print(f"current={current}")
+          print(f"version={version if version != current else ''}")
+          print(f"sha1={builds.get(version, '')}")
+          print(f"major_bump={str(bool(version) and key(version)[0] != key(current)[0]).lower()}")
+          PY
+          cat "$GITHUB_OUTPUT"
+
+      - name: Skip if a branch already exists
+        id: existing
+        env:
+          VERSION: ${{ steps.pick.outputs.version }}
+        run: |
+          if [ -n "$VERSION" ] && git ls-remote --exit-code --heads origin "cef/$VERSION" >/dev/null; then
+            echo "cef/$VERSION already exists; nothing to do."
+            VERSION=""
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  update:
+    name: Build, smoke test, open PR
+    needs: check
+    if: ${{ needs.check.outputs.version != '' }}
+    runs-on: macos-15
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      SHA1: ${{ needs.check.outputs.sha1 }}
+      CURRENT: ${{ needs.check.outputs.current }}
+      BRANCH: cef/${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.CEF_BOT_TOKEN || github.token }}
+
+      - name: Bump pin
+        run: |
+          perl -pi -e 's/^CEF_VERSION="\$\{CEF_VERSION:-.*\}"$/CEF_VERSION="\$\{CEF_VERSION:-$ENV{VERSION}}"/;
+                       s/^CEF_SHA1="\$\{CEF_SHA1:-.*\}"$/CEF_SHA1="\$\{CEF_SHA1:-$ENV{SHA1}}"/' scripts/fetch-cef.sh
+          git diff --exit-code --quiet scripts/fetch-cef.sh && { echo "could not bump the pin in scripts/fetch-cef.sh" >&2; exit 1; }
+          git diff scripts/fetch-cef.sh
+
+      - name: Build (debug, ad-hoc signed)
+        id: build
+        continue-on-error: true
+        env:
+          CRA_INSTALL_DIR: ${{ runner.temp }}/install
+        run: scripts/build.sh debug 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: Smoke test
+        id: smoke
+        if: ${{ steps.build.outcome == 'success' }}
+        continue-on-error: true
+        run: scripts/smoke-test.sh build/Cra.app
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ secrets.CEF_BOT_TOKEN || github.token }}
+          BUILD: ${{ steps.build.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          MAJOR: ${{ needs.check.outputs.major_bump }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -am "CEF $VERSION"
+          git push origin "$BRANCH"
+
+          OK=false
+          [ "$BUILD" = success ] && [ "$SMOKE" = success ] && OK=true
+          BODY="$RUNNER_TEMP/body.md"
+          {
+            echo "Bumps CEF from \`$CURRENT\` to \`$VERSION\` (macosarm64 minimal, SHA-1 \`$SHA1\`)."
+            echo
+            [ "$MAJOR" = true ] && echo "**New Chromium major.** Check the [CEF API changes](https://github.com/chromiumembedded/cef/commits/master/include) and Sources/CraCEF." && echo
+            echo "| Step | Result |"
+            echo "|---|---|"
+            echo "| Build | $BUILD |"
+            echo "| Smoke test | ${SMOKE:-skipped} |"
+            echo
+            echo "Workflow run: $RUN_URL"
+            echo "Chromium security fixes: https://chromereleases.googleblog.com/"
+            if [ "$BUILD" != success ]; then
+              echo; echo "<details><summary>Last build output</summary>"; echo; echo '```'
+              tail -n 60 "$RUNNER_TEMP/build.log"; echo '```'; echo "</details>"
+            fi
+          } > "$BODY"
+          DRAFT=(); [ "$OK" = true ] || DRAFT=(--draft)
+          gh pr create --head "$BRANCH" --title "CEF $VERSION" --body-file "$BODY" "${DRAFT[@]}"
+          [ "$OK" = true ] || { echo "::error::Build or smoke test failed for CEF $VERSION; opened a draft PR."; exit 1; }
