@@ -12,8 +12,8 @@ if { [ -n "${CEF_VERSION:-}" ] || [ -n "${CEF_ARCH:-}" ]; } && [ -z "${CEF_SHA1:
   echo "Set CEF_SHA1 (from https://cef-builds.spotifycdn.com/index.json) when overriding CEF_VERSION or CEF_ARCH." >&2
   exit 1
 fi
-CEF_VERSION="${CEF_VERSION:-156.0.14+g4fa4ab5+chromium-156.0.8078.48}"
-CEF_SHA1="${CEF_SHA1:-7359a9d293dd5c480bec3f18b762731b483b0e13}"
+CEF_VERSION="${CEF_VERSION:-156.0.26+g8ea0c73+chromium-156.0.8078.88}"
+CEF_SHA1="${CEF_SHA1:-ca4fafe7a9c52d9f28200bb8713971a9662b891c}"
 ARCH="${CEF_ARCH:-macosarm64}"
 NAME="cef_binary_${CEF_VERSION}_${ARCH}_minimal"
 URL="https://cef-builds.spotifycdn.com/${NAME}.tar.bz2"
